@@ -31,7 +31,7 @@ class RspecContext < ExtBase
     end
   end
 
-  def editor_destroyed(editor)
+  def editor_released(editor)
     listener = @editor_caret_listeners.delete(editor)
     editor.caret_model.remove_caret_listener(listener) if listener
   end

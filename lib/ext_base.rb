@@ -42,7 +42,7 @@ class ExtBase
   def uninstall
     return unless @listener
 
-    editor_factory.all_editors.each { |editor| @listener.editor_destroyed(editor) }
+    editor_factory.all_editors.each { |editor| @listener.editor_released(editor) }
     project_manager.open_projects.each { |project| @listener.project_closed(project) }
 
     try {
@@ -74,7 +74,7 @@ class ExtBase
       delegate_to(method)
     end
 
-    [:editor_created, :editor_destroyed].each do |method|
+    [:editor_created, :editor_released].each do |method|
       delegate_to(method) { |editor_or_event| [editor_or_event.respond_to?(:editor) ? editor_or_event.editor : editor_or_event] }
     end
   end
