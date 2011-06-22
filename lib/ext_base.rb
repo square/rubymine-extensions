@@ -96,4 +96,39 @@ class ExtBase
       @window
     end
   end
+
+
+  class RunnableBlock
+    include java.lang.Runnable
+
+    def initialize(block)
+      @block = block
+    end
+
+    def run
+      @block.call
+    end
+  end
+
+  class Run
+    def self.application
+      com.intellij.openapi.application.ApplicationManager.application
+    end
+
+    def self.on_pooled_thread(&block)
+      application.executeOnPooledThread(RunnableBlock.new(block))
+    end
+
+    def self.later(&block)
+      application.invokeLater(RunnableBlock.new(block))
+    end
+
+    def self.read_action(&block)
+      application.runReadAction(RunnableBlock.new(block))
+    end
+
+    def self.write_action(&block)
+      application.runWriteAction(RunnableBlock.new(block))
+    end
+  end
 end

@@ -2,8 +2,9 @@ puts 'Hello PMIP 0.3.1! - Please see http://code.google.com/p/pmip/ for full ins
 
 class RspecContext < ExtBase
   def initialize
-    @project_tool_wins = {}
+    @project_tool_wins      = {}
     @editor_caret_listeners = {}
+    @list_clicked_at        = Time.at(0)
   end
 
   def hear_project(project, registry)
@@ -11,7 +12,7 @@ class RspecContext < ExtBase
   end
 
   def project_opened(project)
-    tool_win(project).populate
+    tool_win(project).populate(self)
   end
 
   def project_closed(project)
@@ -25,10 +26,8 @@ class RspecContext < ExtBase
     psi_file = ExtBase.psi_file(editor)
     return unless psi_file
     if psi_file.name =~ /(spec|shared).rb/
-      puts "listening for caret changes on #{psi_file.name}"
       @editor_caret_listeners[editor] = caret_listener = CaretListener.new(self, editor)
       editor.caret_model.add_caret_listener(caret_listener)
-      puts("editor created! #{editor}")
     end
   end
 
@@ -37,28 +36,53 @@ class RspecContext < ExtBase
     editor.caret_model.remove_caret_listener(listener) if listener
   end
 
+  def update(editor)
+    return if Time.now - @list_clicked_at < 1
+
+    psi_file  = ExtBase.psi_file(editor)
+    offset    = editor.caret_model.offset
+    selection = psi_file.find_element_at(offset)
+
+    spec_context = SpecContext.new(editor)
+    spec_context.find_outer_contexts(selection)
+    spec_context.show_lets(tool_win(editor.project))
+  end
+
+  def list_clicked
+    @list_clicked_at = Time.now
+  end
+
   class CaretListener
     def initialize(context, editor)
-      @context = context
-      @tool_win = context.tool_win(editor.project)
+      @context   = context
+      @tool_win  = context.tool_win(editor.project)
+      @last_time = Time.at(0)
+      @thread    = nil
     end
 
     def caret_position_changed(event)
       try {
-        psi_file  = ExtBase.psi_file(event.editor)
-        offset    = event.editor.caret_model.offset
-        selection = psi_file.find_element_at(offset)
-
-        log("calculate context! #{event}")
-        spec_context = SpecContext.new(event.editor, @tool_win)
-        spec_context.find_outer_contexts(selection)
-        spec_context.show_lets
+        last_time = @last_time
+        now       = Time.now
+        if now - last_time < 0.5
+          return if @thread
+          @thread = Thread.new {
+            sleep(now - last_time)
+            ExtBase::Run.later {
+              @context.update(event.editor)
+              @thread = nil
+            }
+          }
+        else
+          @context.update(event.editor)
+          @last_time = now
+        end
       }
     end
   end
 
   class ToolWin < ExtBase::ToolWin
-    def populate
+    def populate(context)
       import javax.swing.JList
       import javax.swing.DefaultListModel
       import javax.swing.ListSelectionModel
@@ -67,7 +91,7 @@ class RspecContext < ExtBase
       @list_model          = DefaultListModel.new
       @list                = JList.new(@list_model)
       @list.selection_mode = ListSelectionModel.SINGLE_SELECTION
-      @list.add_list_selection_listener(ListSelectionListener.new)
+      @list.add_list_selection_listener(ListSelectionListener.new(context))
 #      @list.cell_renderer = MyListCellRenderer.new
 
       window.content_manager.remove_all_contents(true)
@@ -90,11 +114,10 @@ class RspecContext < ExtBase
   end
 
   class SpecContext
-    def initialize(editor, tool_win)
-      @lets     = {}
-      @befores  = []
-      @editor   = editor
-      @tool_win = tool_win
+    def initialize(editor)
+      @lets    = {}
+      @befores = []
+      @editor  = editor
     end
 
     def is_block?(psi_element)
@@ -140,29 +163,34 @@ class RspecContext < ExtBase
       @befores.unshift([el.text, el.text_offset])
     end
 
-    def show_lets
-      @tool_win.clear_items
+    def show_lets(tool_win)
+      tool_win.clear_items
 
       @lets.keys.sort.each do |key|
         let, block, offset = @lets[key]
         if let
-          @tool_win.add_item(ListItem.new(:let, "#{let}(#{key}) #{block}", offset, @editor))
+          tool_win.add_item(ListItem.new(:let, "#{let}(#{key}) #{block}", offset, @editor))
         else
-          @tool_win.add_item(ListItem.new(:subject, "subject #{block}", offset, @editor))
+          tool_win.add_item(ListItem.new(:subject, "subject #{block}", offset, @editor))
         end
       end
 
-      @tool_win.add_item("---")
+      tool_win.add_item("---")
 
       @befores.each do |before, offset|
-        @tool_win.add_item(ListItem.new(:before, before, offset, @editor))
+        tool_win.add_item(ListItem.new(:before, before, offset, @editor))
       end
     end
   end
 
   class ListSelectionListener
+    def initialize(context)
+      @context = context
+    end
+
     def value_changed(event)
       try {
+        @context.list_clicked
 #      return if event.value_is_adjusting?
         index = event.source.selection_model.min_selection_index
         return if index == -1
