@@ -43,7 +43,7 @@ class RspecContext < ExtBase
     offset    = editor.caret_model.offset
     selection = psi_file.find_element_at(offset)
 
-    spec_context = SpecContext.new(editor)
+    spec_context = ContextBuilder.new(editor)
     spec_context.find_outer_contexts(selection)
     spec_context.show_lets(tool_win(editor.project))
   end
@@ -113,11 +113,12 @@ class RspecContext < ExtBase
     end
   end
 
-  class SpecContext
+  class ContextBuilder
     def initialize(editor)
-      @lets    = {}
-      @befores = []
-      @editor  = editor
+      @lets        = {}
+      @befores     = []
+      @description = []
+      @editor      = editor
     end
 
     def is_block?(psi_element)
@@ -137,6 +138,8 @@ class RspecContext < ExtBase
             process_let_or_subject(el)
           elsif el.text =~ /^before/
             process_before(el)
+          elsif el.text =~ /^(context|describe|it)/
+            process_context(el)
           end
         end
       end
@@ -163,6 +166,10 @@ class RspecContext < ExtBase
       @befores.unshift([el.text, el.text_offset])
     end
 
+    def process_context(el)
+      @description.unshift([el.children[0].children[1].text.gsub(/^"/, '').gsub(/"$/, ''), el.text_offset])
+    end
+
     def show_lets(tool_win)
       tool_win.clear_items
 
@@ -180,6 +187,12 @@ class RspecContext < ExtBase
       @befores.each do |before, offset|
         tool_win.add_item(ListItem.new(:before, before, offset, @editor))
       end
+
+      desc = @description.map { |context, offset| context }.join(" • ")
+
+      tool_win.add_item("---")
+
+      tool_win.add_item(ListItem.new(:description, desc, @editor.caret_model.offset, @editor))
     end
   end
 
@@ -209,7 +222,7 @@ class RspecContext < ExtBase
     end
 
     def select
-      puts @offset
+      return unless @offset
       @editor.caret_model.move_to_offset(@offset)
 
       import com.intellij.openapi.editor.ScrollType
