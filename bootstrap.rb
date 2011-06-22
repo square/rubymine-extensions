@@ -1,5 +1,5 @@
 def log(msg)
-  File.open("/tmp/log", "a") { |f| f << "* #{msg}\n" }
+  File.open("/tmp/rubymine-extensions.log", "a") { |f| f << "* #{msg}\n" }
 end
 
 def try
