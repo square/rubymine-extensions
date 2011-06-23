@@ -261,7 +261,7 @@ class RspecContext < ExtBase
 
     def two_columns(left, right, left_is_red)
       left_length = left.length
-      "<b#{left_is_red ? " style=\"color: red;\"" : ""}>#{left.gsub(/ /, "&nbsp;")}</b>#{"&nbsp;" * ([28 - left_length, 0].max)}#{right}"
+      "<b#{left_is_red ? " style=\"color: red;\"" : ""}>#{left.gsub(/ /, "&nbsp;")}</b>#{"&nbsp;" * ([28 - left_length, 0].max)} #{right}"
     end
 
     def get_list_cell_renderer_component(jlist, obj, index, is_selected, has_focus)
@@ -285,7 +285,9 @@ class RspecContext < ExtBase
           when :before
             data[:block]
           when :description
-            "Spec: #{data[:contexts].map { |context, offset| context }.join(" → ")}"
+            parts = data[:contexts].map { |context, offset| context }
+            parts << "<b>#{parts.pop}</b>"
+            "<i>Spec:</i> #{parts.join(" <b>→</b> ")}"
                end
 
         msg = "<span style=\"font-family: monospace;\">#{msg}</span>"
