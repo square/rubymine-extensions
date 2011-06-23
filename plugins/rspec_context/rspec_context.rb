@@ -95,7 +95,7 @@ class RspecContext < ExtBase
       @list                = JList.new(@list_model)
       @list.selection_mode = ListSelectionModel.SINGLE_SELECTION
       @list.add_list_selection_listener(ListSelectionListener.new(context))
-#      @list.cell_renderer = MyListCellRenderer.new
+      @list.cell_renderer = MyListCellRenderer.new
 
       window.content_manager.remove_all_contents(true)
       @content = ContentFactory::SERVICE.instance.create_content(@list, "", true)
@@ -156,10 +156,12 @@ class RspecContext < ExtBase
             process_let_or_subject(el)
           elsif el.text =~ /^before/
             process_before(el)
-          elsif el.text =~ /^(context|describe|it)/
-            process_context(el)
           end
         end
+      end
+
+      if is_block?(selection) && selection.text =~ /^(context|describe|it)/
+        process_context(selection)
       end
 
       search_scope_and_ascend(selection.parent)
@@ -194,23 +196,21 @@ class RspecContext < ExtBase
       @lets.keys.sort.each do |key|
         let, block, offset = @lets[key]
         if let
-          tool_win.add_item(ListItem.new(:let, "#{let}(#{key}) #{block}", offset, @editor))
+          tool_win.add_item(ListItem.new(:let, offset, @editor, :let => let, :key => key, :block => block))
         else
-          tool_win.add_item(ListItem.new(:subject, "subject #{block}", offset, @editor))
+          tool_win.add_item(ListItem.new(:subject, offset, @editor, :block => block))
         end
       end
 
       tool_win.add_item("---")
 
       @befores.each do |before, offset|
-        tool_win.add_item(ListItem.new(:before, before, offset, @editor))
+        tool_win.add_item(ListItem.new(:before, offset, @editor, :block => before))
       end
-
-      desc = @description.map { |context, offset| context }.join(" • ")
 
       tool_win.add_item("---")
 
-      tool_win.add_item(ListItem.new(:description, desc, @editor.caret_model.offset, @editor))
+      tool_win.add_item(ListItem.new(:description, @editor.caret_model.offset, @editor, :contexts => @description))
     end
   end
 
@@ -232,12 +232,14 @@ class RspecContext < ExtBase
   end
 
   class ListItem
-    def initialize(type, text, offset, editor)
-      @type   = type
-      @text   = text
-      @offset = offset
-      @editor = editor
+    def initialize(item_type, offset, editor, data = {})
+      @item_type = item_type
+      @offset    = offset
+      @editor    = editor
+      @data      = data
     end
+
+    attr_accessor :item_type, :data
 
     def select
       return unless @offset
@@ -253,8 +255,47 @@ class RspecContext < ExtBase
   end
 
   class MyListCellRenderer
-    def list_cell_renderer_component(jlist, o, i, b1, b2)
-      puts "render!"
+    def initialize
+      @delegate = javax.swing.DefaultListCellRenderer.new
+    end
+
+    def two_columns(left, right, left_is_red)
+      left_length = left.length
+      "<b#{left_is_red ? " style=\"color: red;\"" : ""}>#{left.gsub(/ /, "&nbsp;")}</b>#{"&nbsp;" * ([28 - left_length, 0].max)}#{right}"
+    end
+
+    def get_list_cell_renderer_component(jlist, obj, index, is_selected, has_focus)
+      if obj.is_a?(String)
+        msg = obj
+      else
+        data = obj.data
+        msg  = case obj.item_type
+          when :let
+            let = data[:let]
+            if let == "let!"
+              red = true
+            else
+              red = false
+              let = "let "
+            end
+            left = "#{let}#{data[:key]}"
+            two_columns(left, data[:block], red)
+          when :subject
+            two_columns("subject", data[:block], false)
+          when :before
+            two_columns("before", data[:block], false)
+          when :description
+            "Spec: #{data[:contexts].map { |context, offset| context }.join(" → ")}"
+               end
+
+        msg = "<span style=\"font-family: monospace;\">#{msg}</span>"
+      end
+      pane = javax.swing.JEditorPane.new("text/html", msg)
+      pane.background = java.awt.Color::GREEN if is_selected
+      return pane
+    rescue Exception => e
+      log(e)
+      @delegate.get_list_cell_renderer_component(jlist, msg, index, is_selected, has_focus)
     end
   end
 
