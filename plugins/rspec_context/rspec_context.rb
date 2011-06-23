@@ -44,7 +44,7 @@ class RspecContext < ExtBase
     selection = psi_file.find_element_at(offset)
 
     spec_context = ContextBuilder.new(editor)
-    spec_context.find_outer_contexts(selection)
+    spec_context.search_scope(selection)
     spec_context.show_lets(tool_win(editor.project))
   end
 
@@ -64,7 +64,7 @@ class RspecContext < ExtBase
       try {
         last_time = @last_time
         now       = Time.now
-        if now - last_time < 0.5
+        if now - last_time < 0.3
           return if @thread
           @thread = Thread.new {
             sleep(now - last_time)
@@ -127,12 +127,27 @@ class RspecContext < ExtBase
       ast_node.element_type.to_s =~ /Ruby:.* block call/
     end
 
-    def find_outer_contexts(selection)
-      return unless selection
-      parent = selection.parent
-      return unless parent
+    def block_of(psi_element)
+      psi_element = psi_element.children[psi_element.children.length - 1]
+      psi_element.children[psi_element.children.length - 1]
+    end
 
-      parent.children.each do |el|
+    def enclosing_block(selection)
+      original = selection
+      selection = selection.parent until !selection || is_block?(selection)
+      selection = block_of(selection) if selection
+      selection || original
+    end
+
+    def search_scope(selection)
+      selection = enclosing_block(selection)
+      search_scope_and_ascend(selection)
+    end
+
+    def search_scope_and_ascend(selection)
+      return unless selection
+
+      selection.children.each do |el|
         if is_block?(el)
           if el.text =~ /^(let|subject)/
             process_let_or_subject(el)
@@ -144,7 +159,7 @@ class RspecContext < ExtBase
         end
       end
 
-      find_outer_contexts(parent)
+      search_scope_and_ascend(selection.parent)
     end
 
     def process_let_or_subject(el)
