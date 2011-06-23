@@ -98,7 +98,8 @@ class RspecContext < ExtBase
       @list.cell_renderer = MyListCellRenderer.new
 
       window.content_manager.remove_all_contents(true)
-      @content = ContentFactory::SERVICE.instance.create_content(@list, "", true)
+      scroll_view = javax.swing.JScrollPane.new(@list)
+      @content    = ContentFactory::SERVICE.instance.create_content(scroll_view, "", true)
       window.content_manager.add_content(@content)
     end
 
