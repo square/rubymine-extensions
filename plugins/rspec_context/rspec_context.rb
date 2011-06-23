@@ -42,6 +42,9 @@ class RspecContext < ExtBase
     psi_file  = ExtBase.psi_file(editor)
     offset    = editor.caret_model.offset
     selection = psi_file.find_element_at(offset)
+    if selection.text =~ /^[\s]+$/
+      selection = psi_file.find_element_at(editor.caret_model.visual_line_end)
+    end
 
     spec_context = ContextBuilder.new(editor)
     spec_context.search_scope(selection)
