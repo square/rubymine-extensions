@@ -283,7 +283,7 @@ class RspecContext < ExtBase
           when :subject
             two_columns("subject", data[:block], false)
           when :before
-            two_columns("before", data[:block], false)
+            data[:block]
           when :description
             "Spec: #{data[:contexts].map { |context, offset| context }.join(" → ")}"
                end
