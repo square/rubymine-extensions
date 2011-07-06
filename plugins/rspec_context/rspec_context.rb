@@ -265,6 +265,10 @@ class RspecContext < ExtBase
       "<b#{left_is_red ? " style=\"color: red;\"" : ""}>#{left.gsub(/ /, "&nbsp;")}</b>#{"&nbsp;" * ([28 - left_length, 0].max)} #{right}"
     end
 
+    def block(data)
+      data[:block].gsub(/\s*\n\s*/, ' <b style="color: blue;">¶</b> ')
+    end
+
     def get_list_cell_renderer_component(jlist, obj, index, is_selected, has_focus)
       if obj.is_a?(String)
         msg = obj
@@ -280,11 +284,11 @@ class RspecContext < ExtBase
               let = "let "
             end
             left = "#{let}#{data[:key]}"
-            two_columns(left, data[:block], red)
+            two_columns(left, block(data), red)
           when :subject
-            two_columns("subject", data[:block], false)
+            two_columns("subject", block(data), false)
           when :before
-            data[:block]
+            block(data)
           when :description
             parts = data[:contexts].map { |context, offset| context }
             parts << "<b>#{parts.pop}</b>"
