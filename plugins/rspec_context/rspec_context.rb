@@ -266,7 +266,10 @@ class RspecContext < ExtBase
     end
 
     def block(data)
-      data[:block].gsub(/\s*\n\s*/, ' <b style="color: blue;">¶</b> ')
+      data[:block].
+        gsub(/([\{\[\(])\s\s+/, '\1 ').
+        gsub(/\s\s+([\}\]\)])/, ' \1').
+        gsub(/\s*\n\s*/, ' <b style="color: blue;">¶</b> ')
     end
 
     def get_list_cell_renderer_component(jlist, obj, index, is_selected, has_focus)
