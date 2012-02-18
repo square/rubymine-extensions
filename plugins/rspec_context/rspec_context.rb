@@ -211,7 +211,11 @@ class RspecContext < ExtBase
 
       tool_win.add_item("---")
 
-      tool_win.add_item(ListItem.new(:description, @editor.caret_model.offset, @editor, :contexts => @description))
+      @description.each_with_index do |context, i|
+        last = i == @description.length - 1
+        offset = last ? @editor.caret_model.offset : context[:offset]
+        tool_win.add_item(ListItem.new(:description, offset, @editor, :context => context, :index => i, :last => last))
+      end
     end
   end
 
@@ -293,11 +297,11 @@ class RspecContext < ExtBase
           when :before
             block(data)
           when :description
-            parts = data[:contexts].map do |context|
-              context[:type] == "shared_examples_for" ? "<i style=\"color: green;\">#{context[:text]}</i>" : context[:text]
-            end
-            parts << "<b>#{parts.pop}</b>"
-            "<i>Spec:</i> #{parts.join("<br/> &nbsp;<b>→</b> ")}"
+            context = data[:context]
+            text = context[:type] == "shared_examples_for" ? "<i style=\"color: green;\">#{context[:text]}</i>" : context[:text]
+            text = "<b>#{text}</b>" if data[:last]
+            log(context.inspect)
+            data[:index] == 0 ? "<i>Spec:</i> #{text}" : "&nbsp;&nbsp;&nbsp;&nbsp;<b>→</b> #{text}"
         end
 
         msg = "<span style=\"font-family: monospace;\">#{msg}</span>"
