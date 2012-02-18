@@ -297,7 +297,7 @@ class RspecContext < ExtBase
               context[:type] == "shared_examples_for" ? "<i style=\"color: green;\">#{context[:text]}</i>" : context[:text]
             end
             parts << "<b>#{parts.pop}</b>"
-            "<i>Spec:</i> #{parts.join(" <b>→</b> ")}"
+            "<i>Spec:</i> #{parts.join("<br/> &nbsp;<b>→</b> ")}"
         end
 
         msg = "<span style=\"font-family: monospace;\">#{msg}</span>"
