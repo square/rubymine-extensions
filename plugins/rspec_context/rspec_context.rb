@@ -161,8 +161,8 @@ class RspecContext < ExtBase
         end
       end
 
-      if is_block?(selection) && selection.text =~ /^(context|describe|it)/
-        process_context(selection)
+      if is_block?(selection) && selection.text =~ /^(context|describe|it|shared_examples_for)/
+        process_context($1, selection)
       end
 
       search_scope_and_ascend(selection.parent)
@@ -187,8 +187,8 @@ class RspecContext < ExtBase
       @befores.unshift([el.text, el.text_offset])
     end
 
-    def process_context(el)
-      @description.unshift([el.children[0].children[1].text.gsub(/^"/, '').gsub(/"$/, ''), el.text_offset])
+    def process_context(type, el)
+      @description.unshift({ :text => el.children[0].children[1].text.gsub(/^"/, '').gsub(/"$/, ''), :offset => el.text_offset, :type => type })
     end
 
     def show_lets(tool_win)
@@ -247,7 +247,7 @@ class RspecContext < ExtBase
       @editor.caret_model.move_to_offset(@offset)
 
       import com.intellij.openapi.editor.ScrollType
-      @editor.scrolling_model.scroll_to_caret(ScrollType::MAKE_VISIBLE);
+      @editor.scrolling_model.scroll_to_caret(ScrollType::MAKE_VISIBLE)
     end
 
     def to_s
@@ -293,10 +293,12 @@ class RspecContext < ExtBase
           when :before
             block(data)
           when :description
-            parts = data[:contexts].map { |context, offset| context }
+            parts = data[:contexts].map do |context|
+              context[:type] == "shared_examples_for" ? "<i style=\"color: green;\">#{context[:text]}</i>" : context[:text]
+            end
             parts << "<b>#{parts.pop}</b>"
             "<i>Spec:</i> #{parts.join(" <b>→</b> ")}"
-               end
+        end
 
         msg = "<span style=\"font-family: monospace;\">#{msg}</span>"
       end
